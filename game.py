@@ -76,7 +76,7 @@ class Capture(object):
         
         lastSubviewPxArray = pygame.pixelarray.PixelArray(lastSubview)
         subviewPxArray = pygame.pixelarray.PixelArray(subview)
-        compared = subviewPxArray.compare(lastSubviewPxArray, 0.15)
+        compared = subviewPxArray.compare(lastSubviewPxArray, 0.12)
         
         changes = 0
         # find the white pixels only
