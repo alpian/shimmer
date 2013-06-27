@@ -1,3 +1,4 @@
+import struct
 import pygame
 import pygame.camera
 import pygame.time
@@ -12,6 +13,9 @@ print(camlist)
 if camlist:
     cam = pygame.camera.Camera(camlist[0],(640,480))
 
+
+def toHex(s):
+    return ":".join("{:02x}".format(ord(c)) for c in s)
 
 class Capture(object):
     def __init__(self):
@@ -78,17 +82,29 @@ class Capture(object):
         subviewPxArray = pygame.pixelarray.PixelArray(subview)
         compared = subviewPxArray.compare(lastSubviewPxArray, 0.12)
         
+        frameAsString = ""
         changes = 0
         # find the white pixels only
         for x in range(0, 320):
+            transmitColumn = ""
             for y in range(0, 240):
                 if compared[x, y] == compared.surface.map_rgb((255, 255, 255)):
                     changes += 1
-                    lastSubviewPxArray[x, y] = subviewPxArray[x, y]
+                    color = subviewPxArray[x, y]
+                    lastSubviewPxArray[x, y] = color
+                    toTransmit = struct.Struct("4B")
+                    toTransmitString = toTransmit.pack(y, (color & 0xFF0000) >> 16, (color & 0x00FF00) >> 8, color & 0x0000FF)
+                    transmitColumn += toTransmitString
+                    #print color, ":", toTransmit.size, ": ", ":".join("{:02x}".format(ord(c)) for c in toTransmitString)
+            # mark end of column
+            if len(transmitColumn) != 0:
+                print "column:", toHex(transmitColumn)
+                frameAsString += struct.Struct("hB").pack(x, len(transmitColumn)/4) + transmitColumn # column index, nr of changes, changes 
         
-        self.total_bytes += (changes * 4)
+        self.total_bytes += len(frameAsString)
         self.number_of_frames += 1
         
+        print toHex(frameAsString)
         print "Average bytes = ", (self.total_bytes / self.number_of_frames) 
         
         # show actual view
