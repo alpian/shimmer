@@ -34,8 +34,8 @@ class Capture(object):
         self.snapshot = pygame.surface.Surface(self.size, 0, self.display)
         
         fourcc = cv.CV_FOURCC('P','I','M','1')
-        self.fps = 24
-        self.writer = cv.CreateVideoWriter('out.avi', fourcc, self.fps, self.smallerSize, 1)
+        self.fps = 12
+        self.writer = cv.CreateVideoWriter('out.avi', fourcc, 24, self.smallerSize, 1)
         
         self.clock = pygame.time.Clock()
         self.total_bytes = 0
@@ -96,12 +96,15 @@ class Capture(object):
         # show difference view
         #self.display.blit(compared.make_surface(), (0,0))
         # show morphed view
-        self.display.blit(lastSubviewPxArray.make_surface(), (0,0))
+        lastSubviewPxArraySurface = lastSubviewPxArray.make_surface()
+        self.display.blit(lastSubviewPxArraySurface, (0,0))
         
         
         pygame.display.flip()
         
-        cv.WriteFrame(self.writer, self.pygame_to_cvimage(subview.copy()))
+        cv.WriteFrame(self.writer, self.pygame_to_cvimage(lastSubviewPxArraySurface.copy()))
+        cv.WriteFrame(self.writer, self.pygame_to_cvimage(lastSubviewPxArraySurface.copy()))
+        print "Written frame"
 
     def main(self):
         going = True
