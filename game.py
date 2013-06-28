@@ -3,6 +3,7 @@ import pygame
 import pygame.camera
 import pygame.time
 import cv2.cv as cv
+import socket
 from pygame.locals import *
 
 pygame.init()
@@ -16,6 +17,31 @@ if camlist:
 
 def toHex(s):
     return ":".join("{:02x}".format(ord(c)) for c in s)
+
+
+class Transmitter(object):
+    def __init__(self):
+        self.sock = socket.socket(socket.AF_INET, # Internet
+                                  socket.SOCK_DGRAM) # UDP
+        
+        self.bufferSize = 8192
+        self.buffer = ""
+    
+    def send(self):
+#         for i in range(0, len(self.buffer), self.bufferSize):
+#             self.sock.sendto(self.buffer[i:i+self.bufferSize], ("127.0.0.1", 50005))
+#         
+#         self.buffer = ""
+        self.sock.sendto(self.buffer, ("127.0.0.1", 50005))
+        
+    def transmit(self, data):
+#         self.buffer += data
+#         if len(self.buffer) > self.bufferSize:
+#             self.send()
+        self.buffer += data
+        self.send()
+        self.buffer = ""
+
 
 class Capture(object):
     def __init__(self):
@@ -34,16 +60,19 @@ class Capture(object):
 
         # create a surface to capture to.  for performance purposes
         # bit depth is the same as that of the display surface.
-        self.lastSnapshot = None
         self.snapshot = pygame.surface.Surface(self.size, 0, self.display)
+        self.lastSnapshot = pygame.surface.Surface(self.size, 0, self.display)
         
-        fourcc = cv.CV_FOURCC('P','I','M','1')
+#         fourcc = cv.CV_FOURCC('P','I','M','1')
+        fourcc = cv.CV_FOURCC('W','E','B','P')
         self.fps = 12
         self.writer = cv.CreateVideoWriter('out.avi', fourcc, 24, self.smallerSize, 1)
         
         self.clock = pygame.time.Clock()
         self.total_bytes = 0
         self.number_of_frames = 0
+        
+        self.transmitter = Transmitter()
 
     def surface_to_string(self, surface):
         """Convert a pygame surface into string"""
@@ -68,7 +97,6 @@ class Capture(object):
         # if you don't want to tie the framerate to the camera, you can check 
         # if the camera has an image ready.  note that while this works
         # on most cameras, some will never return true.
-        self.lastSnapshot = self.snapshot.copy()
             
         if self.cam.query_image():
             self.snapshot = self.cam.get_image(self.snapshot)
@@ -98,14 +126,20 @@ class Capture(object):
                     #print color, ":", toTransmit.size, ": ", ":".join("{:02x}".format(ord(c)) for c in toTransmitString)
             # mark end of column
             if len(transmitColumn) != 0:
-                print "column:", toHex(transmitColumn)
-                frameAsString += struct.Struct("hB").pack(x, len(transmitColumn)/4) + transmitColumn # column index, nr of changes, changes 
+                #print "column:", toHex(transmitColumn)
+                thisColumnAsString = struct.Struct("hB").pack(x, len(transmitColumn)/4) + transmitColumn # column index, nr of changes, changes
+                frameAsString += thisColumnAsString 
+                self.transmitter.transmit(thisColumnAsString)
         
         self.total_bytes += len(frameAsString)
         self.number_of_frames += 1
         
-        print toHex(frameAsString)
-        print "Average bytes = ", (self.total_bytes / self.number_of_frames) 
+        #print toHex(frameAsString)
+        
+        if (self.number_of_frames % 1000) == 0:
+            print "Average bytes = ", (self.total_bytes / self.number_of_frames) 
+        
+#         self.transmitter.transmit(frameAsString)
         
         # show actual view
         #self.display.blit(subview, (0,0))
@@ -120,7 +154,6 @@ class Capture(object):
         
         cv.WriteFrame(self.writer, self.pygame_to_cvimage(lastSubviewPxArraySurface.copy()))
         cv.WriteFrame(self.writer, self.pygame_to_cvimage(lastSubviewPxArraySurface.copy()))
-        print "Written frame"
 
     def main(self):
         going = True
